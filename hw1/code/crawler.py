@@ -14,23 +14,18 @@ import urllib
 from urllib.robotparser import RobotFileParser
 from urllib.parse import urlparse,urljoin
 import logging
-
-
-logging.basicConfig(
-   format='%(asctime)s - %(message)s',
-   filename='crawl.log',
-   filemode='w',
-   level = logging.INFO)
-logger = logging.getLogger(__name__)
+import pathlib
+import time
 
 link_queue = PriorityQueue()
 seed_pages = []
 BLACK_LIST = {'.jpg','.jpeg','.img','.png','.gif', 
-            '.mp3', '.mp4', '.cgi','.asp','.pdf',
+            '.mp3', '.mp4', '.cgi','.asp','.aspx','.pdf',
             '.wav', '.avi', '.wmv', '.flv','.jsp','.js',
             '.php','.read','.do','.htm','.svg',
             '.py','.python','.iso'}
 
+# Thread class to get seed pages
 class SeedThreads(threading.Thread):
    def __init__(self,thread_id,seed_num,seed_lock):
       load_dotenv()
@@ -41,9 +36,9 @@ class SeedThreads(threading.Thread):
       self.seed_lock = seed_lock
       
    def run(self):
-      logger.info(f'start thread {self.thread_id}')
+      logger.debug(f'start thread {self.thread_id}')
       self.crawl()
-      logger.info(f'end thread {self.thread_id}')
+      logger.debug(f'end thread {self.thread_id}')
    
    def crawl(self):
       GOOGLE_SEARCH_API_BASE = 'https://customsearch.googleapis.com/customsearch/v1'
@@ -67,6 +62,7 @@ class SeedThreads(threading.Thread):
          # print(self.startIndex)
          self.seed_lock.release()
 
+# Thread class to crawl pages
 class CrawlerThreads(threading.Thread):
    '''
    crawl threads
@@ -83,13 +79,14 @@ class CrawlerThreads(threading.Thread):
       self.hash_lock = hash_lock
    
    def run(self):
-      logger.info(f'start thread {self.thread_id}')
+      logger.debug(f'start thread {self.thread_id}')
       self.crawl()
-      logger.info(f'end thread {self.thread_id}')
+      logger.debug(f'end thread {self.thread_id}')
 
    def crawl(self):
       global link_num_left
       while True:
+         # check if pages up to maximum pages
          self.link_num_lock.acquire(timeout = 25)
          try:
             print('link num left', link_num_left)
@@ -99,6 +96,7 @@ class CrawlerThreads(threading.Thread):
          finally:
             self.link_num_lock.release()
          
+         # get URL to crawl
          self.crawl_lock.acquire(timeout = 25)
          try:
             if self.queue.empty():
@@ -106,32 +104,38 @@ class CrawlerThreads(threading.Thread):
             _, url = self.queue.get()
             vis_url.add(url)
          except Exception as e:
-            logger.error(f'error: {e}')
+            logger.debug(f'error: {e}')
             continue
          finally:
             self.crawl_lock.release()
 
-         logger.info(f'thread {self.thread_id} : analyzing page {url}')
+         logger.debug(f'thread {self.thread_id} : analyzing page {url}')
          try:
             content = requests.get(url,timeout= 2)
             if content.status_code != 200:
-               logger.info(f'visited_url URL: {url}, status_code: {content.status_code}, just traversed')
+               logger.info(f'visited_url URL: {url}, status_code: {content.status_code}, not in the sample')
          except Exception as e:
-            logger.error(f'error: {e}, url: {url}')
-            logger.info(f'visited_url URL: {url}, just traversed')
+            logger.debug(f'error: {e}, url: {url}')
+            logger.info(f'visited_url URL: {url}, error when get request, not in the sample')
          else:
+            if content.status_code != 200:
+               continue
             try:
-               self.get_lang(content.text)
+               isin = self.get_lang(content.text)
                self.get_links(url,content.text) 
             except Exception as e:
-               logger.info(f'visited_url URL: {url}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, just traversed')
+               logger.info(f'visited_url URL: {url}, status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, error when get language, not in the sample')
             else:
                if content.status_code == 200:
                   self.link_num_lock.acquire(timeout = 25)
                   link_num_left -= 1
-                  self.link_num_lock.release()
-                  logger.info(f'visited_url URL: {url}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, successful added')
+                  self.link_num_lock.release()   
+                  if isin:
+                     logger.info(f'visited_url URL: {url},  status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, in the sample, in the three language')
+                  else:
+                     logger.info(f'visited_url URL: {url},  status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, in the sample, not in the three language')
             
+   # get language of URL's content
    def get_lang(self,str):
 
       def remove_bad_chars(text):
@@ -141,32 +145,39 @@ class CrawlerThreads(threading.Thread):
       global CH_num
       global PL_num
       global ES_num
+      isin = False
       try:
          str = remove_bad_chars(str)
          isReliable, textBytesFound, details = pycld2.detect(str)
       except Exception as e:
-         logging.error(f'error: {e}')
-         return
+         logging.debug(f'error: {e}')
+         return False
       if isReliable:
          for d in details:
             if d[1]=='zh':
-               self.ch_lock.acquire(timeout = 25)
+               isin = True
+               self.ch_lock.acquire(timeout = 2)
                CH_num += 1
                self.ch_lock.release()
             elif d[1]=='pl':
-               self.pl_lock.acquire(timeout = 25)
+               isin = True
+               self.pl_lock.acquire(timeout = 2)
                PL_num += 1
                self.pl_lock.release()
             elif d[1]=='es':
-               self.es_lock.acquire(timeout = 25)
+               isin = True
+               self.es_lock.acquire(timeout = 2)
                ES_num += 1
                self.es_lock.release()
+      return isin
    
+   # get number of LIMIT_PAGES_PER_SITE children URL of a URL
    def get_links(self,org_url,text):
       global url_num
       global domain_num
       LIMIT_PAGES_PER_SITE = 50
       parsed_url = urlparse(org_url)
+
       robot_txt_path = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", "robots.txt")
       try:
          # fix rp.read bug
@@ -174,15 +185,16 @@ class CrawlerThreads(threading.Thread):
          rp = RobotFileParser(robot_txt_path)
          rp.read()
       except Exception as e:
-         logging.error(f'error: {e}, url: {org_url}')
+         logging.debug(f'error: {e}, url: {org_url}')
          return
       
       try:
          raw_links = etree.HTML(text).xpath("//a/@href")
       except Exception as e:
-         logging.error(f'error: {e}, url: {org_url}')
+         logging.debug(f'error: {e}, url: {org_url}')
          return
 
+      # check if can crawl according to robots.txt & in blacklist
       tmp_priority_q = PriorityQueue()
       tmp_urls = set()
       for idx,link in enumerate(raw_links):
@@ -211,6 +223,7 @@ class CrawlerThreads(threading.Thread):
          tmp_urls.add(url)
       # print(len(tmp_urls))
       
+      # calc score
       for link in tmp_urls:
          if len(link)<=1:
             continue
@@ -227,7 +240,8 @@ class CrawlerThreads(threading.Thread):
          score = self.get_score(link)
          self.hash_lock.release()
          tmp_priority_q.put([-score,link])
-         
+
+      # select LIMIT_PAGES_PER_SITE children URLs   
       p_num = 0
       self.crawl_lock.acquire(timeout = 25)
       while p_num < LIMIT_PAGES_PER_SITE:
@@ -240,6 +254,7 @@ class CrawlerThreads(threading.Thread):
          p_num += 1
       self.crawl_lock.release()
    
+   # calc score
    def get_score(self,url):
       # score = url_num/layer_link + layer_link/domain_num
       # print(url)
@@ -250,8 +265,10 @@ class CrawlerThreads(threading.Thread):
 def parse_args():
    parser = argparse.ArgumentParser(description='web crawler')
    parser.add_argument("-q", "--query", help="Search Query", default="Python")
-   parser.add_argument("-p", "--page", help="Pages Crawled", default = 1000)
+   parser.add_argument("-p", "--page", help="Estimated Pages Crawled in the sample", default = 100)
    parser.add_argument("-s", "--seed", help="Number of Seed Page", default=10)
+   parser.add_argument("-d", "--debug", help="whether to add debug information in log", default=False, nargs='?')
+   parser.add_argument("-f", "--file", help="log file path", default='crawl.log',type=pathlib.Path)
    
    if int(parser.parse_args().seed) <= 0:
       exit('Error! Number of seed pages should greater than 0')
@@ -263,30 +280,23 @@ def parse_args():
       exit('Error! Number of seed pages is greater than page crawled.')
    return parser.parse_args()
 
-def get_seed_page(query, seed_num):
-   load_dotenv()
-   seed_page = []
-   startIndex = 1
-   GOOGLE_SEARCH_API_BASE = 'https://customsearch.googleapis.com/customsearch/v1'
-   while seed_num > 0:
-      if seed_num > 10:
-         url = f"{GOOGLE_SEARCH_API_BASE}?key={getenv('GOOGLE_SEARCH_API_KEY')}&cx={getenv('GOOGLE_SEARCH_ENGINE_ID')}&q={query}&start={startIndex}"
-      else:
-         url = f"{GOOGLE_SEARCH_API_BASE}?key={getenv('GOOGLE_SEARCH_API_KEY')}&cx={getenv('GOOGLE_SEARCH_ENGINE_ID')}&q={query}&start={startIndex}&num={seed_num}"
-      seed_num -= 10
-      startIndex += 10
-      content = requests.get(url,timeout=20)
-      items = json.loads(content.text)['items']
-      for item in items:
-         seed_page.append(item['link'])
-   # print(seed_page)
-   # print(len(set(seed_page)))
-   return seed_page
-
 
 if __name__ == "__main__":
-   # 1. get args
-   query, page, seed = parse_args().query, int(parse_args().page), int(parse_args().seed)
+   # 1. get args & start time & logs
+   start_time = time.time()
+   query, page, seed, isdebug,logpath = parse_args().query, int(parse_args().page), \
+      int(parse_args().seed), parse_args().debug, parse_args().file
+   
+   print(logpath)
+   logging.basicConfig(
+      format='%(asctime)s - %(message)s',
+      filename=logpath,
+      filemode='w',
+      level = logging.INFO)
+   logger = logging.getLogger(__name__)
+   if isdebug!= False:
+      logger.setLevel(logging.DEBUG)
+   
    
    # 2. get seed pages
    seed_threads_num = math.ceil(seed/10) 
@@ -346,7 +356,10 @@ if __name__ == "__main__":
    for thread in crawler_threads:
       thread.join()
    
+   ## log basic statistics at the end of the crawl
    page -= link_num_left
+   time_shift = time.time() - start_time
+   logger.info(f'{page} URLs included in the sample, using {time_shift} seconds, visited {len(vis_url)} URLs')
    logger.info('percentage of pages in Spanish {:%}'.format(ES_num/page))
    logger.info('percentage of pages in Chinese {:%}'.format(CH_num/page))
    logger.info('percentage of pages in Polish {:%}'.format(PL_num/page))

@@ -1,0 +1,37 @@
+# MultiThread Web Crawler
+
+## Architecture
+1. logging
+2. SeedThreads
+3. CrawlerThreads
+
+## workflow
+1. get parameters of logging settings, seed numbers `s`, estimated crawled pages `p`
+2. SeedThreads get number of `s` URL as seed pages using GOOGLE_SEARCH_ENGINE
+3. Base on seed pages, crawl number of `p` pages.
+    - use PriorityQueue `q` to put URLs and corresponding scores (score,url) waiting for crawl
+    - use `vis_url` to mark url has been crawled
+    - For each turn:
+      (a). check if `q` is empty or already get `p` pages, if not go to (b), else exit
+      (b). get (score,url) which score is the max in `q`. 
+           check if url can get request successfully and not in vis_url, 
+           if so, go to (c) else start a new turn
+      (c). check request of url's status_code. 
+           if equal to `200`, go to (d)
+      (d). get language of url's content using Python lib `pycld2`
+           get children URLs of url
+           About children URL select:
+           1. get all URLs can get in url content
+           2. check each URLs if can be crawled according to robot.txt, 
+              filter those in black list by file endings
+           3. for those pass check URLs, score each URL, select number of `LIMIT_PAGES_PER_SITE` URLs
+              which has maximum score, add them in `q`
+
+## score strategy
+the number of children URLs in content of mother URL: N_{URLs}
+the number of a specific children URL in content of mother URL: N_{URL}
+the number of domains in content of mother URL: N_{DOMAINs}
+the number of a specific doamin in content of mother URL: N_{DOMAIN}
+
+$$ score = \frac{N_{URL}}{N_{URLs}} + \frac{N_{DOMAINs}}{N_{DOMAIN}} $$
+
