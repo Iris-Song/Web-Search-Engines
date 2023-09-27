@@ -35,3 +35,7 @@ the number of a specific doamin in content of mother URL: N_{DOMAIN}
 
 $$ score = \frac{N_{URL}}{N_{URLs}} + \frac{N_{DOMAINs}}{N_{DOMAIN}} $$
 
+##others
+page means the estimated number of URL that the crawler can get with 200 status code. 
+The result URLs included in the logs may be not exactly the same because of MultiThreads.
+

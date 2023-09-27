@@ -36,6 +36,7 @@ domain_num = {} #num of domian
 url_num = {} #num of url
 crawl_lock = threading.Lock()
 
+
 # Thread class to get seed pages
 class SeedThreads(threading.Thread):
    def __init__(self,thread_id,seed_num,seed_lock):
@@ -67,11 +68,9 @@ class SeedThreads(threading.Thread):
                seed_pages.append(item['link'])
       except Exception as e:
          logger.debug(f'error: {e}, thread {self.thread_id}, url: {url}')
-         # print(e)
-         # print(url)
-         # print(self.startIndex)
       finally:
          self.seed_lock.release()
+
 
 # Thread class to crawl pages
 class CrawlerThreads(threading.Thread):
@@ -90,89 +89,56 @@ class CrawlerThreads(threading.Thread):
    def crawl(self):
       global link_num_left
       global vis_url
+      global link_queue
+      global crawl_lock
 
-      while True:
+      while link_num_left >0 and not link_queue.empty():
          # check if pages up to maximum pages
+         print('link num left', link_num_left)
+
          try:
-            logger.debug(f'thread {self.thread_id} : try to acquire lock at 1')
+            # get link
             crawl_lock.acquire()
-            logger.debug(f'thread {self.thread_id} : get lock at 1')
-            print('link num left', link_num_left)
-            if link_num_left <=0:
-               logger.debug(f'thread {self.thread_id} : added pages up to maximum pages')
-               break
-         except Exception as e:
-            logger.debug(f'error: {e}, thread {self.thread_id}')
-            break
-         finally:
-            try:
-               crawl_lock.release()
-               logger.debug(f'thread {self.thread_id} : release lock at 1')
-            except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when rel lock at 1')
-         
-         # get URL to crawl
-         try:
-            logger.debug(f'thread {self.thread_id} : try to acquire lock at 2')
-            crawl_lock.acquire()
-            logger.debug(f'thread {self.thread_id} : get lock at 2')
-            if link_queue.empty():
-               break
             _, url = link_queue.get()
             vis_url.add(url)
+            crawl_lock.release()
+
+            try:
+               content = requests.get(url,timeout= 2)
+            except Exception as e:
+               logger.error(f'error: {e}, url: {url}')
+               logger.critical(f'visited_url URL: {url}, error when get request, not in the sample')
+               continue
+
+            if content.status_code != 200:
+               logger.critical(f'visited_url URL: {url}, status_code: {content.status_code}, not in the sample')
+               continue
+
+            try:
+               isin = self.get_lang(content.text)
+               self.get_links(url,content.text) 
+            except Exception as e:
+               continue
+
+            crawl_lock.acquire()
+            link_num_left -= 1
+            crawl_lock.release()
+
+            if isin:
+               logger.critical(f'visited_url URL: {url},  status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, in the sample, in the three language')
+            else:
+               logger.critical(f'visited_url URL: {url},  status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, in the sample, not in the three language')
+
          except Exception as e:
             logger.debug(f'error: {e}, thread {self.thread_id}')
             break
          finally:
             try:
                crawl_lock.release()
-               logger.debug(f'thread {self.thread_id} : release lock at 2')
-            except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when rel lock at 2')
-            
-
-         try:
-            logger.debug(f'thread {self.thread_id} : analyzing page {url}')
-            content = requests.get(url,timeout= 2)
-         except Exception as e:
-            logger.debug(f'error: {e}, thread {self.thread_id},url: {url}')
-            logger.info(f'visited_url URL: {url}, error when get request, not in the sample')
-            continue
-         else:
-            try:
-               if content.status_code != 200:
-                  logger.info(f'visited_url URL: {url}, status_code: {content.status_code}, not in the sample')
-                  continue
-            except Exception as e:
-               logger.debug(f' error: {e}, thread {self.thread_id}, url: {url}')
-               continue
-            else:
-               try:
-                  isin = self.get_lang(content.text)
-                  self.get_links(url,content.text) 
-               except Exception as e:
-                  try:
-                     logger.info(f'visited_url URL: {url}, status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, error when get language, not in the sample')
-                  except Exception as e:
-                     logger.info(f'visited_url URL: {url}, error when get language, not in the sample')
-               else:
-                  try:
-                     logger.debug(f'thread {self.thread_id} : try to acquire lock at 3')
-                     crawl_lock.acquire()
-                     logger.debug(f'thread {self.thread_id} : get lock at 3')
-                     if content.status_code == 200:
-                        link_num_left -= 1
-                        if isin:
-                           logger.info(f'visited_url URL: {url},  status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, in the sample, in the three language')
-                        else:
-                           logger.info(f'visited_url URL: {url},  status_code: {content.status_code}, size: {len(content.text)}, time of access: {content.elapsed.total_seconds()}, in the sample, not in the three language')
-                  finally:
-                     try:
-                        crawl_lock.release()   
-                        logger.debug(f'thread {self.thread_id} : release lock at 3')
-                     except Exception as e:
-                        logger.debug(f'thread {self.thread_id} :error: {e}, url: {url}, error when rel lock at 3')
-                             
+            except:
+               pass
+         
+          
    # get language of URL's content
    def get_lang(self,str):
 
@@ -187,14 +153,8 @@ class CrawlerThreads(threading.Thread):
       try:
          str = remove_bad_chars(str)
          isReliable, textBytesFound, details = pycld2.detect(str)
-      except Exception as e:
-         logger.debug(f'error: {e}, thread {self.thread_id}')
-         return False
-      if isReliable:
-         try:
-            logger.debug(f'thread {self.thread_id} : try to acquire lock at 4')
+         if isReliable:
             crawl_lock.acquire()
-            logger.debug(f'thread {self.thread_id} : get lock at 4')
             for d in details:
                if d[1]=='zh':
                   isin = True
@@ -205,12 +165,12 @@ class CrawlerThreads(threading.Thread):
                elif d[1]=='es':
                   isin = True
                   ES_num += 1
-         finally:
+      except:
+         return False
+      finally:
             try:
                crawl_lock.release()
-               logger.debug(f'thread {self.thread_id} : release lock at 4')
             except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when rel lock at 4')
                return False
       return isin
    
@@ -219,6 +179,12 @@ class CrawlerThreads(threading.Thread):
 
       LIMIT_PAGES_PER_SITE = 50
       global vis_url
+      global domain_num
+      global url_num
+
+      tmp_priority_q = PriorityQueue()
+      tmp_urls = set()
+
       try:
          parsed_url = urlparse(org_url)
          robot_txt_path = urljoin(f"{parsed_url.scheme}://{parsed_url.netloc}", "robots.txt")
@@ -226,109 +192,72 @@ class CrawlerThreads(threading.Thread):
          f = urllib.request.urlopen(robot_txt_path,timeout = 2)
          rp = RobotFileParser(robot_txt_path)
          rp.read()
-      except Exception as e:
-         logger.debug(f'error: {e}, thread {self.thread_id}, url: {org_url}')
-         return
-      
-      try:
          raw_links = etree.HTML(text).xpath("//a/@href")
-      except Exception as e:
-         logger.debug(f'error: {e}, thread {self.thread_id}, url: {org_url}')
+      except:
          return
 
       # check if can crawl according to robots.txt & in blacklist
-      tmp_priority_q = PriorityQueue()
-      tmp_urls = set()
-      for idx,link in enumerate(raw_links):
-         try:
+      try:
+         for idx,link in enumerate(raw_links):
             if len(link)<=1 or link[0]=='#':
                continue
+
             try:
                parsed_link = urlparse(link)
                base_url = f"{parsed_link.scheme if parsed_link.scheme else parsed_url.scheme}://{parsed_link.netloc if parsed_link.netloc else parsed_url.netloc}"
                url = raw_links[idx] = urljoin(base_url, parsed_link.path).rstrip('/')
                file_name, file_extension = path.splitext(url)
-            except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when at 22')
+            except:
                continue
-            logger.debug(f'thread {self.thread_id} : try to acquire lock at 7')
-            crawl_lock.acquire()
-            logger.debug(f'thread {self.thread_id} : get lock at 7')
+
             try:
+               crawl_lock.acquire()
                if file_extension.lower() in BLACK_LIST or not rp.can_fetch("*",url) \
                   or not re.match(r'^https?:/{2}\w.+$', url) or url in vis_url:
                   continue
-            except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when at 20')
-               continue
-         finally:
-            try:
-               crawl_lock.release()
-               logger.debug(f'thread {self.thread_id} : release lock at 7')
-            except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when rel lock at 7')
-               continue
-         
-         try:
-            logger.debug(f'thread {self.thread_id} : try to acquire lock at 8')
-            crawl_lock.acquire()
-            logger.debug(f'thread {self.thread_id} : get lock at 8')
-            try:
                url_num[url] = 1 if url not in url_num else url_num[url] + 1
                if parsed_link.netloc:
                   domain_num[parsed_link.netloc] = 1 if parsed_link.netloc not in domain_num else domain_num[parsed_link.netloc] + 1
                else:
                   domain_num[parsed_url.netloc] = 1 if parsed_url.netloc not in domain_num else domain_num[parsed_url.netloc] + 1
                tmp_urls.add(url)
-            except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when at 21')
-               continue
-         finally:
-            try:
-               crawl_lock.release()
-               logger.debug(f'thread {self.thread_id} : release lock at 8')
-            except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when rel lock at 8')
-      # print(len(tmp_urls))
+            finally:
+               try:
+                  crawl_lock.release()
+               except:
+                  pass
+      except:
+         return
       
       # calc score
       for link in tmp_urls:
-         try:
-            if len(link)<=1:
-               continue
-         except Exception as e:
-            logger.debug(f'error: {e}, thread {self.thread_id}')
+         if len(link)<=1:
             continue
          
          try:
             file_name, file_extension = path.splitext(link)
-            logger.debug(f'thread {self.thread_id} : try to acquire lock at 9')
             crawl_lock.acquire()
-            logger.debug(f'thread {self.thread_id} : get lock at 9')
             if file_extension.lower() in BLACK_LIST or not rp.can_fetch("*",url) \
                or not re.match(r'^https?:/{2}\w.+$', url) or url in vis_url:
                continue
+         except:
+            continue
          finally:
             try:
                crawl_lock.release()
-               logger.debug(f'thread {self.thread_id} : release lock at 9')
             except Exception as e:
-               logger.debug(f'error: {e}, thread {self.thread_id}, error when rel lock at 9')
+               pass
          
          try:
             score = self.get_score(link)
             tmp_priority_q.put([-score,link])
          except Exception as e:
-            logger.debug(f'error: {e}, thread {self.thread_id}, error when get score of {link}')
-            return
+            continue
 
-      # select LIMIT_PAGES_PER_SITE children URLs   
+      # select LIMIT_PAGES_PER_SITE children URLs 
+      p_num = 0  
       try:
-         p_num = 0
-         logger.debug(f'thread {self.thread_id} : try to acquire lock at 10')
          crawl_lock.acquire()
-         logger.debug(f'thread {self.thread_id} : get lock at 10')
-         
          while p_num < LIMIT_PAGES_PER_SITE and not tmp_priority_q.empty():
             p = tmp_priority_q.get()
             if p[1] in vis_url:
@@ -338,14 +267,12 @@ class CrawlerThreads(threading.Thread):
       finally:
          try:
             crawl_lock.release()
-            logger.debug(f'thread {self.thread_id} : release lock at 10')
          except Exception as e:
-            logger.debug(f'error: {e}, thread {self.thread_id}, error when rel lock at 10')
+            pass
    
    # calc score
    def get_score(self,url):
       # score = url_num/layer_link + layer_link/domain_num
-      # print(url)
       domain = urlparse(url).netloc
       score = url_num[url]/len(url_num) + len(domain_num)/domain_num[domain]
       return score
@@ -375,12 +302,12 @@ if __name__ == "__main__":
    query, page, seed, isdebug,logpath = parse_args().query, int(parse_args().page), \
       int(parse_args().seed), parse_args().debug, parse_args().file
    
-   print(logpath)
+   # print(logpath)
    logging.basicConfig(
       format='%(asctime)s - %(message)s',
       filename=logpath,
       filemode='w',
-      level = logging.INFO)
+      level = logging.CRITICAL)
    logger = logging.getLogger(__name__)
    if isdebug!= False:
       logger.setLevel(logging.DEBUG)
@@ -402,21 +329,14 @@ if __name__ == "__main__":
    for thread in seed_threads:
       thread.join()
 
-   print(seed_pages)
-   print(len(seed_pages))
-   # seed_pages = ['https://www.canada.ca/en.html','https://en.wikipedia.org/wiki/Chinese_language', 'https://www.tclchinesetheatres.com/', 'https://en.wikipedia.org/wiki/China', 'https://english.cas.cn/', 'https://www.un.org/zh/observances/chinese-language-day/english', 'https://www.cnn.com/world/china', 'https://www.pandaexpress.com/', 'https://camla.org/', 'https://chineselaundry.com/', 'https://chsa.org/','https://tw.money.yahoo.com','https://es.vida-estilo.yahoo.com/tagged/celebrity']
-   
    for e in seed_pages:
       link_queue.put([-1000,e])
-   # print(link_queue)
    
    # 3.crawl
    number_of_threads = len(seed_pages)
    crawler_threads = []
    
    link_num_left = page
-   print(page,link_num_left)
-
    threading.TIMEOUT_MAX = 30
    socket.setdefaulttimeout(2)
    for i in range(number_of_threads):
@@ -434,10 +354,7 @@ if __name__ == "__main__":
    ## log basic statistics at the end of the crawl
    page -= link_num_left
    time_shift = time.time() - start_time
-   logger.info(f'{page} URLs included in the sample, using {time_shift} seconds, visited {len(vis_url)} URLs')
-   logger.info('percentage of pages in Spanish {:%}'.format(ES_num/page))
-   logger.info('percentage of pages in Chinese {:%}'.format(CH_num/page))
-   logger.info('percentage of pages in Polish {:%}'.format(PL_num/page))
-
-   # print('len_vis',len(vis_url))
-   # print('page',page)
+   logger.critical(f'{page} URLs included in the sample, using {time_shift} seconds, visited {len(vis_url)} URLs')
+   logger.critical('percentage of pages in Spanish {:%}'.format(ES_num/page))
+   logger.critical('percentage of pages in Chinese {:%}'.format(CH_num/page))
+   logger.critical('percentage of pages in Polish {:%}'.format(PL_num/page))
