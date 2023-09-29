@@ -1,7 +1,6 @@
 import threading
-import multiprocessing
 import argparse
-from queue import Queue,PriorityQueue
+from queue import PriorityQueue
 from os import getenv,path
 from dotenv import load_dotenv
 import json
@@ -18,6 +17,7 @@ import logging
 import pathlib
 import time
 import socket
+
 
 # global var used in crawler
 seed_pages = []
@@ -137,8 +137,7 @@ class CrawlerThreads(threading.Thread):
                crawl_lock.release()
             except:
                pass
-         
-          
+                
    # get language of URL's content
    def get_lang(self,str):
 
