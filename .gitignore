@@ -14,3 +14,4 @@ hw2/test.cpp
 hw2/test
 *.gz
 hw2/Indexer
+*.bin

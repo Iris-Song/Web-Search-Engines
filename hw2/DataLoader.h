@@ -6,6 +6,7 @@
 #include "DocTable.h"
 #include "InvertedIndex.h"
 #include "SortedPosting.h"
+#include "Lexicon.h"
 
 class DataLoader
 {
@@ -19,11 +20,14 @@ private:
 public:
     DocTable _DocTable;
     InvertedIndex _InvertedIndex;
+    Lexicon _Lexicon;
 
     DataLoader();
     ~DataLoader();
     void read_data(const char *filepath);
     void mergeIndexToOne();
+    void WriteDocTable();
+    void WriteLexicon();
 };
 
 #endif

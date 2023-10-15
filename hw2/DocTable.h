@@ -26,7 +26,7 @@ public:
     DocTable(/* args */);
     ~DocTable();
     void add(Document docIDitem);
-    void write();
+    void Write();
     void print();
 };
 

@@ -6,7 +6,8 @@ InvertedIndex::InvertedIndex()
     allIndexSize = 0;
     indexFileNum = 0;
 
-    if (!IS_INDEX){
+    if (!IS_INDEX)
+    {
         countIndexFileNum();
         return;
     }
@@ -17,7 +18,7 @@ InvertedIndex::InvertedIndex()
 
     if (std::filesystem::exists(IndexFoldPath))
     {
-        if (!clearIndexFolder())
+        if (!clearIndexFolder(false))
         {
             throw "cannot clear Index Folder!";
         }
@@ -33,6 +34,10 @@ InvertedIndex::InvertedIndex()
 
 InvertedIndex::~InvertedIndex()
 {
+    if (IS_DELETE_TEMP)
+    {
+        clearIndexFolder(true);
+    }
 }
 
 bool InvertedIndex::creatIndexFolder()
@@ -41,7 +46,7 @@ bool InvertedIndex::creatIndexFolder()
     return std::filesystem::create_directory(IndexFoldPath);
 }
 
-bool InvertedIndex::clearIndexFolder()
+bool InvertedIndex::clearIndexFolder(bool deleteFolder)
 {
     std::string IndexFoldPath = INDEX_FILE_FOLDER_PATH;
     for (const auto &entry : std::filesystem::directory_iterator(IndexFoldPath))
@@ -54,6 +59,9 @@ bool InvertedIndex::clearIndexFolder()
             };
         }
     }
+    if (deleteFolder)
+        return std::filesystem::remove(IndexFoldPath);
+
     return true;
 }
 
@@ -65,7 +73,7 @@ void InvertedIndex::countIndexFileNum()
     {
         if (!std::filesystem::is_directory(entry.path()))
         {
-            indexFileNum+=1;
+            indexFileNum += 1;
         }
     }
 }
@@ -77,7 +85,7 @@ void InvertedIndex::Insert(std::string word, uint32_t docID, uint32_t freq)
     bool isWrite = false;
     if (HashWord.count(word))
     {
-        if (allIndexSize + POST_BYTES >= FILE_INDEX_CHUNK)
+        if (allIndexSize + POST_BYTES > FILE_INDEX_CHUNK)
             isWrite = true;
         else
         {
@@ -87,7 +95,7 @@ void InvertedIndex::Insert(std::string word, uint32_t docID, uint32_t freq)
     }
     else
     {
-        if (allIndexSize + POST_BYTES + AVG_WORD_BYTES >= FILE_INDEX_CHUNK)
+        if (allIndexSize + POST_BYTES + AVG_WORD_BYTES > FILE_INDEX_CHUNK)
             isWrite = true;
         else
         {
@@ -113,9 +121,17 @@ std::string InvertedIndex::getIndexFilePath()
 {
     indexFileNum += 1;
     if (FILEMODE == FILEMODE_ASCII)
-        return std::string(INDEX_FILE_FOLDER_PATH) + "ASCII_" + std::to_string(indexFileNum-1) + ".txt";
+        return std::string(INDEX_FILE_FOLDER_PATH) + "ASCII_" + std::to_string(indexFileNum - 1) + ".txt";
     else if (FILEMODE == FILEMODE_BIN)
-        return std::string(INDEX_FILE_FOLDER_PATH) + "BIN_" + std::to_string(indexFileNum-1) + ".bin";
+        return std::string(INDEX_FILE_FOLDER_PATH) + "BIN_" + std::to_string(indexFileNum - 1) + ".bin";
+}
+
+std::string InvertedIndex::getIndexFilePath(uint32_t fileNum)
+{
+    if (FILEMODE == FILEMODE_ASCII)
+        return std::string(INDEX_FILE_FOLDER_PATH) + "ASCII_" + std::to_string(fileNum) + ".txt";
+    else if (FILEMODE == FILEMODE_BIN)
+        return std::string(INDEX_FILE_FOLDER_PATH) + "BIN_" + std::to_string(fileNum) + ".bin";
 }
 
 void InvertedIndex::Write()
@@ -132,6 +148,10 @@ void InvertedIndex::Write()
             for (std::vector<std::pair<uint32_t, uint32_t>>::iterator iter = it->second.begin();
                  iter != it->second.end(); ++iter)
             {
+                if (iter != it->second.begin())
+                {
+                    outfile << " ";
+                }
                 outfile << iter->first << " " << iter->second;
             }
             outfile << std::endl;
@@ -139,6 +159,22 @@ void InvertedIndex::Write()
     }
     else if (FILEMODE == FILEMODE_BIN)
     {
+        outfile.open(path,std::ofstream::binary);
+        for (std::map<std::string, std::vector<std::pair<uint32_t, uint32_t>>>::iterator it = HashWord.begin();
+             it != HashWord.end(); ++it)
+        {
+            outfile << it->first << ":";
+            for (std::vector<std::pair<uint32_t, uint32_t>>::iterator iter = it->second.begin();
+                 iter != it->second.end(); ++iter)
+            {
+                if (iter != it->second.begin())
+                {
+                    outfile << " ";
+                }
+                outfile << iter->first << " " << iter->second;
+            }
+            outfile << std::endl;
+        }
     }
     outfile.close();
 }
