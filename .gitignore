@@ -6,3 +6,11 @@ test.py
 *.zip
 *.o
 *.exe
+*.trec
+*.exe
+hw2/provide
+*.txt
+hw2/test.cpp
+hw2/test
+*.gz
+hw2/Indexer
