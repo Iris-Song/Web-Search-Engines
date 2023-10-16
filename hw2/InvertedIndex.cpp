@@ -141,40 +141,25 @@ void InvertedIndex::Write()
     if (FILEMODE == FILEMODE_ASCII)
     {
         outfile.open(path);
-        for (std::map<std::string, std::vector<std::pair<uint32_t, uint32_t>>>::iterator it = HashWord.begin();
-             it != HashWord.end(); ++it)
-        {
-            outfile << it->first << ":";
-            for (std::vector<std::pair<uint32_t, uint32_t>>::iterator iter = it->second.begin();
-                 iter != it->second.end(); ++iter)
-            {
-                if (iter != it->second.begin())
-                {
-                    outfile << " ";
-                }
-                outfile << iter->first << " " << iter->second;
-            }
-            outfile << std::endl;
-        }
     }
     else if (FILEMODE == FILEMODE_BIN)
     {
-        outfile.open(path,std::ofstream::binary);
-        for (std::map<std::string, std::vector<std::pair<uint32_t, uint32_t>>>::iterator it = HashWord.begin();
-             it != HashWord.end(); ++it)
+        outfile.open(path, std::ofstream::binary);
+    }
+    for (std::map<std::string, std::vector<std::pair<uint32_t, uint32_t>>>::iterator it = HashWord.begin();
+         it != HashWord.end(); ++it)
+    {
+        outfile << it->first << ":";
+        for (std::vector<std::pair<uint32_t, uint32_t>>::iterator iter = it->second.begin();
+             iter != it->second.end(); ++iter)
         {
-            outfile << it->first << ":";
-            for (std::vector<std::pair<uint32_t, uint32_t>>::iterator iter = it->second.begin();
-                 iter != it->second.end(); ++iter)
+            if (iter != it->second.begin())
             {
-                if (iter != it->second.begin())
-                {
-                    outfile << " ";
-                }
-                outfile << iter->first << " " << iter->second;
+                outfile << " ";
             }
-            outfile << std::endl;
+            outfile << iter->first << " " << iter->second;
         }
+        outfile << std::endl;
     }
     outfile.close();
 }

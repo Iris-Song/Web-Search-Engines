@@ -108,13 +108,11 @@ void DataLoader::read_data(const char *filepath)
 
             docContent = docContent.substr(pos + CONST_DOC_LEN);
             docID += 1;
-            // break;
         }
-        // break;
-        if (IS_DEBUG && docID > 20000)
-        {
-            break;
-        }
+        // if (IS_DEBUG && docID > 20000)
+        // {
+        //     break;
+        // }
     }
 
     if (!_InvertedIndex.HashWord.empty())

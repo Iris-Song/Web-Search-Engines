@@ -3,7 +3,7 @@ CXX_FLAGS = -std=c++17 -w
 
 BIN = Indexer
 
-$(BIN): main.o DataLoader.o DocTable.o InvertedIndex.o SortedPosting.o
+$(BIN): main.o DataLoader.o DocTable.o InvertedIndex.o Lexicon.o SortedPosting.o
 	$(CC) -o $@ $^ -lz
 main.o: main.cpp
 	$(CC) $(CXX_FLAGS) -c -o $@ $<
@@ -12,6 +12,8 @@ DataLoader.o: DataLoader.cpp
 DocTable.o: DocTable.cpp
 	$(CC) $(CXX_FLAGS) -c -o $@ $<
 InvertedIndex.o: InvertedIndex.cpp
+	$(CC) $(CXX_FLAGS) -c -o $@ $<
+Lexicon.o: Lexicon.cpp
 	$(CC) $(CXX_FLAGS) -c -o $@ $<
 SortedPosting.o: SortedPosting.cpp
 	$(CC) $(CXX_FLAGS) -c -o $@ $<

@@ -8,7 +8,7 @@ int main()
         dl.read_data(DATA_SOURCE_PATH);
         clock_t index_end = clock();
         clock_t index_time = index_end-index_begin;
-        std::cout<<"Build Postings and TEMP Inverted Index Need "<<double(index_time)/1000<<"s"<<std::endl;
+        std::cout<<"Build Postings and TEMP Inverted Index Need "<<double(index_time)/1000000<<"s"<<std::endl;
     }
 
     if (IS_MERGE)

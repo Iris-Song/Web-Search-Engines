@@ -8,7 +8,7 @@
 #include <utility>
 
 #define DATA_SOURCE_PATH "./msmarco-docs.trec.gz"
-#define INDEX_FILE_FOLDER_PATH "./sh/"
+#define INDEX_FILE_FOLDER_PATH "./temp/"
 #define FINAL_INDEX_PATH "index.idx"
 #define LEXICON_PATH "lexicon.lex"
 #define DOC_TABLE_PATH "docTable.dt"
@@ -17,7 +17,7 @@
 #define POST_BYTES 10 // 2*uint_32(4) + 2*seperator
 #define AVG_WORD_BYTES 12 //estimated
 
-#define FILE_INDEX_CHUNK 41943040 //40MB
+#define FILE_INDEX_CHUNK 20971520 //20MB
 #define FILEMODE_ASCII 0
 #define FILEMODE_BIN 1
 #define FILEMODE 1
