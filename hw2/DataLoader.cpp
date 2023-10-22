@@ -93,7 +93,7 @@ void DataLoader::read_data(const char *filepath)
             doc.docID = docID;
             doc.docNO = extractContent(docContent.substr(0, pos), "<DOCNO>", "</DOCNO>");
             std::string fullText = extractContent(docContent.substr(0, pos), "<TEXT>\n", "</TEXT>");
-            doc.dataLen = sizeof(fullText);
+            doc.dataLen = fullText.length();
             doc.url = getFirstLine(fullText);
             doc.wordnums = calcWordFreq(fullText, docID);
             _DocTable.add(doc);
@@ -181,11 +181,11 @@ void DataLoader::mergeIndex(uint32_t fileIndex1, uint32_t fileIndex2)
             std::string docID2 = arr2.substr(0, arr2.find(" "));
             if (docID1 < docID2)
             {
-                outfile << word1 << ":" << arr1 << " " << arr2 << std::endl;
+                outfile << word1 << ":" << arr1 << "," << arr2 << std::endl;
             }
             else
             {
-                outfile << word1 << ":" << arr2 << " " << arr1 << std::endl;
+                outfile << word1 << ":" << arr2 << "," << arr1 << std::endl;
             }
 
             // update line1 and line2
@@ -240,6 +240,7 @@ void DataLoader::mergeIndexToOne()
 {
     uint32_t mergedIndexNum = 0;
     uint32_t leftIndexNum;
+    std::cout<< _InvertedIndex.indexFileNum<<std::endl;
     while ((leftIndexNum = _InvertedIndex.indexFileNum - mergedIndexNum) > 2)
     {
         mergeIndex(mergedIndexNum, mergedIndexNum + 1);

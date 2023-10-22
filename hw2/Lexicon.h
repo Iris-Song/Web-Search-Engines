@@ -15,6 +15,7 @@ private:
     std::string IndexPath;
     std::string LexiconPath;
     uint32_t calcDocNum(std::string); //calc Doc Num
+    uint32_t WriteBitArray(std::string,std::ofstream &);
 
 public:
     std::map<std::string, LexiconItem> _lexiconList;

@@ -155,7 +155,7 @@ void InvertedIndex::Write()
         {
             if (iter != it->second.begin())
             {
-                outfile << " ";
+                outfile << ",";
             }
             outfile << iter->first << " " << iter->second;
         }

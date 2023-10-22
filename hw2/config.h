@@ -16,6 +16,7 @@
 #define INDEX_CHUNK 409600 //400KB
 #define POST_BYTES 10 // 2*uint_32(4) + 2*seperator
 #define AVG_WORD_BYTES 12 //estimated
+#define CHAR_END_TAG '\0'
 
 #define FILE_INDEX_CHUNK 20971520 //20MB
 #define FILEMODE_ASCII 0
