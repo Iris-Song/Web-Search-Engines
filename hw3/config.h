@@ -1,0 +1,44 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <map>
+#include <utility>
+#include <queue>
+#include <iomanip>
+
+#define DATA_SOURCE_PATH "./msmarco-docs.trec.gz"
+#define INDEX_FILE_FOLDER_PATH "./tempb/"
+#define FINAL_INDEX_PATH "index.idx"
+#define LEXICON_PATH "lexicon.lex"
+#define DOC_TABLE_PATH "docTable.dt"
+
+#define INDEX_CHUNK 409600 //400KB
+#define POST_BYTES 10 // 2*uint_32(4) + 2*seperator
+#define AVG_WORD_BYTES 12 //estimated
+#define CHAR_END_TAG '\0'
+
+#define FILE_INDEX_CHUNK 20971520 //20MB
+#define FILEMODE_ASCII 0
+#define FILEMODE_BIN 1
+#define FILEMODE 0
+
+#define POSTINGS_IN_BLOCK 64
+#define BLOCK_SIZE 131072//128KB
+#define MAXDID -1
+#define CONJUNCTIVE 0
+#define DISJUNCTIVE 1
+#define RESULT_NUM 20
+
+#define IS_DEBUG 1
+#define IS_INDEX 0 //whether build index
+#define IS_MERGE 1 //whether merge index
+#define IS_WRITE_PAGE 0//whether write Document Table(page table)
+#define IS_WRITE_LEXICON 0 //whether write Lexicon Structure
+#define IS_DELETE_TEMP 0
+#define IS_RELOAD 1
+#define IS_QUERY 0
+
+#endif
