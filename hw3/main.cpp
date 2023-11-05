@@ -41,7 +41,8 @@ int main()
 
     if(IS_QUERY)
     {
-        dl.QueryLoop();
+        // dl.QueryLoop();
+        dl.TestQuery();
     }
     
 }

@@ -6,7 +6,8 @@ public:
     uint32_t beginp; // begin offset
     uint32_t endp;   // end offset
     uint32_t docNum;
-    void update(uint32_t, uint32_t, uint32_t);
+    uint32_t blockNum;
+    void update(uint32_t, uint32_t, uint32_t, uint32_t);
 };
 
 class Lexicon
@@ -14,7 +15,7 @@ class Lexicon
 private:
     std::string LexiconPath;
     uint32_t calcDocNum(std::string); //calc Doc Num
-    uint32_t WriteBlocks(std::string,std::ofstream &);
+    uint32_t WriteBlocks(uint32_t&, std::string,std::ofstream &);
     
 
 public:
@@ -22,7 +23,7 @@ public:
     std::string IndexPath;
     Lexicon();
     ~Lexicon();
-    bool Insert(std::string, uint32_t, uint32_t, uint32_t);
+    bool Insert(std::string, uint32_t, uint32_t, uint32_t, uint32_t);
     void Build(std::string);
     void Write();
     void LoadLexiconList();

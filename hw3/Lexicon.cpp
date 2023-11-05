@@ -20,13 +20,12 @@ std::vector<uint8_t> varbyte_encode(uint32_t value)
     return encoded;
 }
 
-
-
-void LexiconItem::update(uint32_t bgp, uint32_t edp, uint32_t dn)
+void LexiconItem::update(uint32_t bgp, uint32_t edp, uint32_t dn, uint32_t bn)
 {
     beginp = bgp;
     endp = edp;
     docNum = dn;
+    blockNum = bn;
 }
 
 Lexicon::Lexicon()
@@ -52,17 +51,18 @@ uint32_t Lexicon::calcDocNum(std::string idxWordList)
     return (spaceNum + 1) / 2;
 }
 
-bool Lexicon::Insert(std::string word, uint32_t beginp, uint32_t endp, uint32_t docNum)
+bool Lexicon::Insert(std::string word, uint32_t beginp,
+                     uint32_t endp, uint32_t docNum, uint32_t blockNum)
 {
     if (word.empty())
         return false;
     LexiconItem lexItem;
-    lexItem.update(beginp, endp, docNum);
+    lexItem.update(beginp, endp, docNum, blockNum);
     _lexiconList[word] = lexItem;
     return true;
 }
 
-uint32_t Lexicon::WriteBlocks(std::string arr, std::ofstream &outfile)
+uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &outfile)
 {
     // get docID_list,freq_list
     size_t beginpos = 0;
@@ -145,6 +145,8 @@ uint32_t Lexicon::WriteBlocks(std::string arr, std::ofstream &outfile)
     int blocks_num = metadata_last_docID.size();
     int pblocks = 0;
 
+    uint32_t blockNum = 0;
+
     while (pblocks < blocks_num)
     {
         uint32_t nowbyte = 4; // block_len
@@ -162,6 +164,7 @@ uint32_t Lexicon::WriteBlocks(std::string arr, std::ofstream &outfile)
 
         // write a block
         // write metadata
+        blockNum += 1;
         uint32_t block_len = metadata_last_docID.size();
         outfile.write(reinterpret_cast<const char *>(&block_len), sizeof(uint32_t));
         for (int i = pbeginblock; i < pblocks; i++)
@@ -195,14 +198,16 @@ uint32_t Lexicon::WriteBlocks(std::string arr, std::ofstream &outfile)
         }
 
         // file left blocks in 0
-        uint8_t zero = 0;
-        for (int i = 0; i < BLOCK_SIZE - nowbyte; i++)
-        {
-            outfile.write(reinterpret_cast<const char *>(&zero), sizeof(uint8_t));
-        }
+        // uint8_t zero = 0;
+        // for (int i = 0; i < BLOCK_SIZE - nowbyte; i++)
+        // {
+        //     outfile.write(reinterpret_cast<const char *>(&zero), sizeof(uint8_t));
+        // }
     }
 
-    return docID_list.size();
+    docNum = docID_list.size();
+
+    return blockNum;
 }
 
 void Lexicon::Build(std::string path)
@@ -219,13 +224,22 @@ void Lexicon::Build(std::string path)
     {
         std::getline(infile, line);
         std::string word = line.substr(0, line.find(":"));
+        if (!word.length())
+        {
+            break;
+        }
         std::string arr = line.substr(line.find(":") + 1);
-        uint32_t docNum = WriteBlocks(arr, outfile);
+        uint32_t docNum;
+        uint32_t blockNum = WriteBlocks(docNum, arr, outfile);
 
         // update Lexicon
         endp = outfile.tellp();
-        std::cout << word << " " << beginp << " " << endp << " " << docNum << std::endl;
-        Insert(word, beginp, endp, docNum);
+        if (blockNum > 1)
+        {
+            std::cout << word << " " << beginp << " " << endp << " "
+                      << docNum << " " << blockNum << std::endl;
+        }
+        Insert(word, beginp, endp, docNum, blockNum);
         beginp = endp;
     }
 
@@ -249,7 +263,7 @@ void Lexicon::Write()
          iter != _lexiconList.end(); ++iter)
     {
         outfile << iter->first << " " << iter->second.beginp << " " << iter->second.endp << " "
-                << iter->second.docNum << std::endl;
+                << iter->second.docNum << " " << iter->second.blockNum << std::endl;
     }
     outfile.close();
 }
@@ -276,8 +290,8 @@ void Lexicon::LoadLexiconList()
         std::string term;
         LexiconItem li;
         infile >> term;
-        infile >> li.beginp >> li.endp >> li.docNum;
+        infile >> li.beginp >> li.endp >> li.docNum >> li.blockNum;
         _lexiconList[term] = li;
     }
+    std::cout << "There are " << _lexiconList.size() << " words in Lexicon Structure" << std::endl;
 }
-
