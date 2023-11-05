@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "zlib.h"
 
 #define DATA_SOURCE_PATH "./msmarco-docs.trec.gz"
 #define INDEX_FILE_FOLDER_PATH "./tempb/"
@@ -38,6 +39,7 @@
 #define CONJUNCTIVE 0
 #define DISJUNCTIVE 1
 #define RESULT_NUM 20
+#define SNIPPETS_RANGE 100
 
 #define IS_DEBUG 1
 #define IS_INDEX 0 //whether build index
@@ -45,6 +47,7 @@
 #define IS_WRITE_PAGE 0//whether write Document Table(page table)
 #define IS_WRITE_LEXICON 0 //whether write Lexicon Structure
 #define IS_DELETE_TEMP 0
+#define IS_BUILD 0
 #define IS_RELOAD 1
 #define IS_QUERY 1
 

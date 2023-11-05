@@ -62,7 +62,7 @@ bool Lexicon::Insert(std::string word, uint32_t beginp,
     return true;
 }
 
-uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &outfile)
+uint32_t Lexicon::WriteBlocks(std::string term, uint32_t &docNum, std::string arr, std::ofstream &outfile)
 {
     // get docID_list,freq_list
     size_t beginpos = 0;
@@ -99,7 +99,10 @@ uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &
             {
                 std::cout << "nooo" << std::endl;
             }
-
+            // if (term == "0")
+            // {
+            //     std::cout << docID << " " << freq << std::endl;
+            // }
             std::vector<uint8_t> endocID = varbyte_encode(docID - prevdocID);
             std::vector<uint8_t> enFreq = varbyte_encode(freq);
             docID_list.push_back(endocID);
@@ -120,10 +123,8 @@ uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &
         }
         beginpos = comma + 1;
     }
-    if (docID_list.size() == 1)
-    {
-        int ii = 0;
-    }
+
+    docNum = docID_list.size();
 
     // get metadata_docID_block_sizes, metadata_freq_block_sizes
     uint32_t docIDsize = 0, freqSize = 0;
@@ -142,6 +143,7 @@ uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &
     }
 
     // write blocks
+
     int blocks_num = metadata_last_docID.size();
     int pblocks = 0;
 
@@ -158,27 +160,42 @@ uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &
             {
                 break;
             }
-            nowbyte += newsize;
             pblocks += 1;
+            nowbyte += newsize;
         }
 
         // write a block
+        // if(term=="0")
+        // std::cout<<"write a block"<<std::endl;
         // write metadata
         blockNum += 1;
-        uint32_t block_len = metadata_last_docID.size();
+        uint32_t block_len = pblocks - pbeginblock;
         outfile.write(reinterpret_cast<const char *>(&block_len), sizeof(uint32_t));
+        // if(term=="0")
+        // std::cout<<"metadata size :"<<block_len<<std::endl;
+        // if(term=="0")
+        // std::cout<<"lastdocID :";
         for (int i = pbeginblock; i < pblocks; i++)
         {
             outfile.write(reinterpret_cast<const char *>(&metadata_last_docID[i]), sizeof(uint32_t));
+            // if(term=="0")
+            // std::cout<<metadata_last_docID[i]<<" ";
         }
+        // if(term=="0")std::cout<<std::endl;
         for (int i = pbeginblock; i < pblocks; i++)
         {
             outfile.write(reinterpret_cast<const char *>(&metadata_docID_block_sizes[i]), sizeof(uint32_t));
+            // if(term=="0")
+            // std::cout<<metadata_docID_block_sizes[i]<<" ";
         }
+        // if(term=="0")std::cout<<std::endl;
         for (int i = pbeginblock; i < pblocks; i++)
         {
             outfile.write(reinterpret_cast<const char *>(&metadata_freq_block_sizes[i]), sizeof(uint32_t));
+            // if(term=="0")
+            // std::cout<<metadata_freq_block_sizes[i]<<" ";
         }
+        // if(term=="0")std::cout<<std::endl;
         // write docID blocks & freq blocks
         for (int i = pbeginblock; i < pblocks; i++)
         {
@@ -189,6 +206,9 @@ uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &
                 {
                     outfile.write(reinterpret_cast<const char *>(&endocID[k]), sizeof(uint8_t));
                 }
+            }
+            for (int j = i * POSTINGS_IN_BLOCK; j < (i + 1) * POSTINGS_IN_BLOCK && j < docID_list.size(); j++)
+            {
                 std::vector<uint8_t> enFreq = freq_list[j];
                 for (int k = 0; k < enFreq.size(); k++)
                 {
@@ -196,7 +216,6 @@ uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &
                 }
             }
         }
-
         // file left blocks in 0
         // uint8_t zero = 0;
         // for (int i = 0; i < BLOCK_SIZE - nowbyte; i++)
@@ -204,9 +223,7 @@ uint32_t Lexicon::WriteBlocks(uint32_t &docNum, std::string arr, std::ofstream &
         //     outfile.write(reinterpret_cast<const char *>(&zero), sizeof(uint8_t));
         // }
     }
-
-    docNum = docID_list.size();
-
+    
     return blockNum;
 }
 
@@ -229,8 +246,9 @@ void Lexicon::Build(std::string path)
             break;
         }
         std::string arr = line.substr(line.find(":") + 1);
+
         uint32_t docNum;
-        uint32_t blockNum = WriteBlocks(docNum, arr, outfile);
+        uint32_t blockNum = WriteBlocks(word, docNum, arr, outfile);
 
         // update Lexicon
         endp = outfile.tellp();

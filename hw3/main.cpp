@@ -20,7 +20,16 @@ int main()
         std::cout<<"Merge Inverted Index Need "<<double(merge_time)/1000000<<"s"<<std::endl;
     }
 
-    if(IS_WRITE_LEXICON)
+    if(IS_BUILD)
+    {
+        clock_t build_lexicon_begin = clock();
+        dl.BuildLexicon();
+        clock_t build_lexicon_end = clock();
+        clock_t lexicon_time = build_lexicon_end-build_lexicon_begin;
+        std::cout<<"Build Lexicon Structure Need "<<double(lexicon_time)/1000000<<"s"<<std::endl;  
+    }
+
+    if(IS_BUILD && IS_WRITE_LEXICON)
     {
         clock_t write_lexicon_begin = clock();
         dl.WriteLexicon();

@@ -15,7 +15,7 @@ class Lexicon
 private:
     std::string LexiconPath;
     uint32_t calcDocNum(std::string); //calc Doc Num
-    uint32_t WriteBlocks(uint32_t&, std::string,std::ofstream &);
+    uint32_t WriteBlocks(std::string,uint32_t&, std::string,std::ofstream &);
     
 
 public:
