@@ -35,11 +35,12 @@
 
 #define POSTINGS_IN_BLOCK 64
 #define BLOCK_SIZE 65536//64KB
+#define MAX_METASIZE 8192//8KB
 #define MAX_DOCID -1
 #define CONJUNCTIVE 0
 #define DISJUNCTIVE 1
 #define RESULT_NUM 20
-#define SNIPPETS_RANGE 100
+#define SNIPPETS_RANGE 50
 
 #define IS_DEBUG 1
 #define IS_INDEX 0 //whether build index
