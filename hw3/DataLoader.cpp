@@ -279,26 +279,6 @@ void DataLoader::mergeIndexToOne()
         mergeIndex(mergedIndexNum, mergedIndexNum + 1);
         mergedIndexNum += 2;
     }
-
-    // uint32_t oldIndex = 0;
-    // uint32_t allOldIndex = _InvertedIndex.indexFileNum;
-    // while(oldIndex < allOldIndex)
-    // {
-    //     if(oldIndex==0)
-    //     {
-    //         mergeIndex(0,1);
-    //         oldIndex = 2;
-    //     }else{
-    //         mergeIndex(oldIndex,_InvertedIndex.indexFileNum-1);
-    //         oldIndex+=1;
-    //     }
-    // }
-    // _InvertedIndex.indexFileNum = 1352;
-    // for (int i = 603; i <= 749; i++)
-    // {
-    //     mergeIndex(i, _InvertedIndex.indexFileNum - 1);
-    // }
-
 }
 
 void DataLoader::BuildLexicon()
@@ -317,7 +297,7 @@ void DataLoader::WriteLexicon()
     _Lexicon.Write();
 }
 
-//
+//calculate BM25
 double DataLoader::BM25_t_q(std::string term, uint32_t docID, uint32_t freq)
 {
     double k1 = 1.2;
@@ -342,32 +322,51 @@ uint32_t DataLoader::nextGEQ(uint32_t pointer, uint32_t end, uint32_t k)
     return MAX_DOCID;
 }
 
-void DataLoader::openList(uint32_t beginp, uint32_t &metadata_size,
+void DataLoader::openList(uint32_t offset, uint32_t &metadata_size,
                           std::vector<uint32_t> &lastdocID_list, std::vector<uint32_t> &docIDsize_list,
                           std::vector<uint32_t> &freqSize_list)
 {
-    index_infile.seekg(beginp,std::ios::beg);
+    int index_fd = open(_Lexicon.IndexPath.c_str(), O_RDONLY);
+    off_t pa_offset = offset & ~(sysconf(_SC_PAGE_SIZE) - 1);
+    size_t length = MAX_METASIZE;
+    struct stat sb;
+    if (offset + length > sb.st_size)
+        length = sb.st_size - offset;
+    // Execute mmap
+    char *ret = (char *)mmap(NULL, length + offset - pa_offset, PROT_READ, MAP_PRIVATE, index_fd, pa_offset);
+    if (ret == MAP_FAILED)
+    {
+        close(index_fd);
+        perror("mmap");
+        return;
+    }
 
-    // decode metadata, openList
-    index_infile.read(reinterpret_cast<char *>(&metadata_size), sizeof(metadata_size));
-
-    uint32_t lastdocID, docIDblockSize, freqBlockSize;
+    // read metadata
+    int startIndex = offset - pa_offset;
+    std::memcpy(&metadata_size, ret + startIndex, sizeof(metadata_size));
+    startIndex += sizeof(metadata_size);
     for (int i = 0; i < metadata_size; i++)
     {
-        index_infile.read(reinterpret_cast<char *>(&lastdocID), sizeof(lastdocID));
+        uint32_t lastdocID;
+        std::memcpy(&lastdocID, ret + startIndex, sizeof(lastdocID));
         lastdocID_list.push_back(lastdocID);
+        startIndex += sizeof(lastdocID);
     }
     for (int i = 0; i < metadata_size; i++)
     {
-        index_infile.read(reinterpret_cast<char *>(&docIDblockSize), sizeof(docIDblockSize));
-        docIDsize_list.push_back(docIDblockSize);
+        uint32_t docIDsize;
+        std::memcpy(&docIDsize, ret + startIndex, sizeof(docIDsize));
+        docIDsize_list.push_back(docIDsize);
+        startIndex += sizeof(docIDsize);
     }
     for (int i = 0; i < metadata_size; i++)
     {
-        index_infile.read(reinterpret_cast<char *>(&freqBlockSize), sizeof(freqBlockSize));
-        freqSize_list.push_back(freqBlockSize);
+        uint32_t freqSize;
+        std::memcpy(&freqSize, ret + startIndex, sizeof(freqSize));
+        freqSize_list.push_back(freqSize);
+        startIndex += sizeof(freqSize);
     }
-
+    close(index_fd);
 }
 
 uint32_t DataLoader::getFreq(std::string term, uint32_t docID)
@@ -378,14 +377,21 @@ uint32_t DataLoader::getFreq(std::string term, uint32_t docID)
 void DataLoader::TAATQuery(std::vector<std::string> word_list, int type)
 {
     _resultList.Clear();
-    index_infile.open(_Lexicon.IndexPath, std::ifstream::binary);
+    // index_infile.open(_Lexicon.IndexPath, std::ifstream::binary);
     if (type == DISJUNCTIVE)
     {
         std::vector<double> score_array(_DocTable._totalDoc, 0);
         for (int i = 0; i < word_list.size(); i++)
         {
             std::string term = word_list[i];
-            decodeBlocks(term, score_array);
+            try
+            {
+                decodeBlocks(term, score_array);
+            }
+            catch (...)
+            {
+                std::cerr<<"exception"<<std::endl;
+            }
         }
         findTopKscores(score_array, RESULT_NUM);
     }
@@ -413,14 +419,19 @@ void DataLoader::TAATQuery(std::vector<std::string> word_list, int type)
         {
             if (word == minterm)
                 continue;
-            updateScoreHash(word, score_hash, false);
+            try
+            {
+                updateScoreHash(word, score_hash, false);
+            }
+            catch (...)
+            {
+                std::cerr<<"exception"<<std::endl;
+            }
         }
 
         findTopKscores(score_hash, RESULT_NUM);
     }
-
-    _resultList.FindSnippets(word_list);
-    index_infile.close();
+    // index_infile.close();
 }
 
 std::vector<std::string> DataLoader::splitQuery(std::string query)
@@ -460,11 +471,16 @@ void DataLoader::TestQuery()
         std::cout << "unlegal query" << std::endl;
         return;
     }
-    TAATQuery(word_list, 0);
+    TAATQuery(word_list, 1);
     clock_t query_end = clock();
     clock_t query_time = query_end - query_start;
     std::cout << "search using " << std::setiosflags(std::ios::fixed)
               << std::setprecision(2) << double(query_time) / 1000000 << "s" << std::endl;
+    clock_t snippet_begin = clock();
+    _resultList.FindSnippets(word_list);
+    clock_t snippet_end = clock();
+    clock_t snippet_time = snippet_end - snippet_begin;
+    std::cout << "find snippets using " << double(snippet_time) / 1000000 << "s" << std::endl;
     _resultList.Print();
 }
 
@@ -472,9 +488,9 @@ void DataLoader::QueryLoop()
 {
     std::cout << "Welcome to my search engine!" << std::endl;
     std::cout << "input 'exit' to exit." << std::endl;
-    std::cout << "you can input a query like 'hello word'." << std::endl;
+    std::cout << "you can input a query like 'hello world'." << std::endl;
     std::cout << "you can select search type, conjunctive(0) or disjunctive(1) queries." << std::endl;
-    std::cout<<std::setiosflags(std::ios::fixed)<<std::setprecision(2);
+    std::cout << std::setiosflags(std::ios::fixed) << std::setprecision(2);
 
     while (true)
     {
@@ -515,6 +531,12 @@ void DataLoader::QueryLoop()
         clock_t query_end = clock();
         clock_t query_time = query_end - query_start;
         std::cout << "search using " << double(query_time) / 1000000 << "s" << std::endl;
+        clock_t snippet_begin = clock();
+        _resultList.FindSnippets(word_list);
+        clock_t snippet_end = clock();
+        clock_t snippet_time = snippet_end - snippet_begin;
+        std::cout << "find snippets using " << double(snippet_time) / 1000000 << "s" << std::endl;
+
         _resultList.Print();
     }
 }
@@ -597,19 +619,32 @@ void DataLoader::decodeBlock(std::string term, uint32_t &beginp, std::vector<dou
     beginp += calcMetaSize(metadata_size, lastdocID_list, docIDsize_list, freqSize_list);
 }
 
-std::vector<uint32_t> DataLoader::decodeChunk(uint32_t beginp, uint32_t endp)
+std::vector<uint32_t> DataLoader::decodeChunk(uint32_t offset, uint32_t endp)
 {
-    
-    index_infile.seekg(beginp,std::ios::beg);
+    int index_fd = open(_Lexicon.IndexPath.c_str(), O_RDONLY);
+    off_t pa_offset = offset & ~(sysconf(_SC_PAGE_SIZE) - 1);
+    size_t length = endp - offset;
+    struct stat sb;
+    if (offset + length > sb.st_size)
+        length = sb.st_size - offset;
+    // Execute mmap
+    char *ret = (char *)mmap(NULL, length + offset - pa_offset, PROT_READ, MAP_PRIVATE, index_fd, pa_offset);
+    if (ret == MAP_FAILED)
+    {
+        close(index_fd);
+        perror("mmap");
+    }
 
     std::vector<uint32_t> decodedIntegers;
     uint32_t currentInt = 0;
     int shift = 0;
     uint8_t byte;
+    int startIndex = offset - pa_offset;
 
-    for (uint32_t i = beginp; i < endp; i++)
+    for (uint32_t i = offset; i < endp; i++)
     {
-        index_infile.read(reinterpret_cast<char *>(&byte), sizeof(byte));
+        std::memcpy(&byte, ret + startIndex, sizeof(byte));
+        startIndex += sizeof(byte);
         currentInt |= (byte & 0x7F) << shift;
         if ((byte & 0x80) == 0)
         { // Check the high bit
@@ -622,6 +657,8 @@ std::vector<uint32_t> DataLoader::decodeChunk(uint32_t beginp, uint32_t endp)
             shift += 7;
         }
     }
+
+    close(index_fd);
 
     return decodedIntegers;
 }
@@ -658,7 +695,7 @@ void DataLoader::findTopKscores(std::vector<double> &score_array, int k)
 
         uint32_t docID = maxQueue.top().index;
         double score = maxQueue.top().value;
-        _resultList.Insert(docID,_DocTable._DocTable[docID].url, score, "");
+        _resultList.Insert(docID, _DocTable._DocTable[docID].url, score, "");
         maxQueue.pop();
     }
 }
@@ -680,28 +717,6 @@ void DataLoader::decodeBlock(std::string term, uint32_t &beginp,
     uint32_t metadata_size;
     std::vector<uint32_t> lastdocID_list, docIDsize_list, freqSize_list;
     openList(beginp, metadata_size, lastdocID_list, docIDsize_list, freqSize_list);
-    // if (term == "hello")
-    // {
-    //     std::cout << "metadata_size " << metadata_size << std::endl;
-    //     std::cout << "lastdocID_list ";
-    //     for (int i = 0; i < lastdocID_list.size(); i++)
-    //     {
-    //         std::cout << lastdocID_list[i] << " ";
-    //     }
-    //     std::cout << std::endl;
-    //     std::cout << "docIDsize_list ";
-    //     for (int i = 0; i < docIDsize_list.size(); i++)
-    //     {
-    //         std::cout << docIDsize_list[i] << " ";
-    //     }
-    //     std::cout << std::endl;
-    //     std::cout << "freqSize_list ";
-    //     for (int i = 0; i < freqSize_list.size(); i++)
-    //     {
-    //         std::cout << freqSize_list[i] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
 
     // decode chunk
     std::vector<uint32_t> docID64, freq64;
@@ -733,18 +748,10 @@ void DataLoader::decodeBlock(std::string term, uint32_t &beginp,
                 score_hash[prev_docID] = BM25_t_q(term, prev_docID, freq64[i]);
             }
         }
-        // for(int i=0;i<docID64.size();i++){
-        //     std::cout<<docID64[i]<<" ";
-        // }
-        // std::cout<<std::endl;
-        // for(int i=0;i<freq64.size();i++){
-        //     std::cout<<freq64[i]<<" ";
-        // }
-        // std::cout<<std::endl;
     }
 
     beginp += freqp + freqSize_list[metadata_size - 1];
-    // std::cout<<score_hash.size()<<std::endl;
+    
 }
 
 void DataLoader::findTopKscores(std::map<uint32_t, double> &score_hash, int k)
@@ -844,12 +851,11 @@ bool DataLoader::findDocID(uint32_t docID, uint32_t &freq, uint32_t &beginp, uin
             for (int i = 0; i < index; i++)
             {
                 docIDp += docIDsize_list[i] + freqSize_list[i];
-                freqp += freqSize_list[i] + docIDsize_list[i+1];
+                freqp += freqSize_list[i] + docIDsize_list[i + 1];
             }
             docID64 = decodeChunk(docIDp, docIDp + docIDsize_list[index]);
             freq64 = decodeChunk(freqp, freqp + freqSize_list[index]);
 
-            // std::cout<<docID64.size()<<" "<<freq64.size()<<std::endl;
 
             // find if docID in
             for (int i = 0; i < docID64.size(); i++)

@@ -2,10 +2,11 @@
 int main()
 {
     DataLoader dl;
+    
     if (IS_INDEX)
     {
         clock_t index_begin = clock();
-        dl.read_data(DATA_SOURCE_PATH);
+        dl.ReadData(DATA_SOURCE_PATH);
         clock_t index_end = clock();
         clock_t index_time = index_end-index_begin;
         std::cout<<"Build Postings and TEMP Inverted Index Need "<<double(index_time)/1000000<<"s"<<std::endl;
@@ -50,8 +51,8 @@ int main()
 
     if(IS_QUERY)
     {
-        // dl.QueryLoop();
-        dl.TestQuery();
+        dl.QueryLoop();
+        // dl.TestQuery();
     }
     
 }

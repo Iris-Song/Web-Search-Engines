@@ -1,7 +1,7 @@
 CC = g++ -g
 CXX_FLAGS = -std=c++17 -w 
 
-BIN = tmp
+BIN = search
 
 $(BIN): main.o DataLoader.o DocTable.o InvertedIndex.o Lexicon.o Result.o SortedPosting.o
 	$(CC) -o $@ $^ -lz
@@ -23,4 +23,4 @@ SortedPosting.o: SortedPosting.cpp
 .phony:
 clean:
 	rm -f *.o $(BIN)
-	rm -f tmp
+	rm -f search

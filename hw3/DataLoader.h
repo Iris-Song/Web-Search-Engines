@@ -13,7 +13,6 @@ class DataLoader
 private:
     /* data */
     ResultList _resultList;
-    std::ifstream index_infile;
 
     std::string extractContent(std::string org, std::string bstr, std::string estr);
     std::string getFirstLine(std::string);

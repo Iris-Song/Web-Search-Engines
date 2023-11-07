@@ -119,6 +119,8 @@ std::string ResultList::extractSnippets(std::string org, std::string bstr, std::
     size_t start_pos = org.find(bstr);
     size_t end_pos = org.find(estr);
     std::string text = org.substr(start_pos + begin_tag_len, end_pos - start_pos - begin_tag_len);
+    start_pos = text.find("\n");
+    text = text.substr(start_pos);
 
     std::string sep = " :;,.\t\v\r\n\f[]{}()<>+-=*&^%$#@!~`\'\"|\\/?·\"：“”";
     std::string word;
