@@ -9,6 +9,7 @@ public:
     std::string docNO; // doc no
     uint32_t dataLen; // the number of data file containing this page
     uint32_t wordnums; // number of words
+    z_off_t gzp; //pointer in gzfile
     std::string url; // url
     void print();
 };

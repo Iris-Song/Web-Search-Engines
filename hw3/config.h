@@ -18,12 +18,13 @@
 #include "zlib.h"
 
 #define DATA_SOURCE_PATH "./msmarco-docs.trec.gz"
+#define SNIPPETS_SOURCE_PATH "./msmarco-docs.trec"
 #define INDEX_FILE_FOLDER_PATH "./tempb/"
 #define FINAL_INDEX_PATH "index.idx"
 #define LEXICON_PATH "lexicon.lex"
 #define DOC_TABLE_PATH "docTable.dt"
 
-#define INDEX_CHUNK 409600 //400KB
+#define INDEX_CHUNK 1024 //1KB
 #define POST_BYTES 10 // 2*uint_32(4) + 2*seperator
 #define AVG_WORD_BYTES 12 //estimated
 #define CHAR_END_TAG '\0'

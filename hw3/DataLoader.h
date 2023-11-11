@@ -18,9 +18,9 @@ private:
     std::string getFirstLine(std::string);
     uint32_t calcWordFreq(std::string, uint32_t); // calc (word,Freq) in TEXT
     void mergeIndex(uint32_t, uint32_t);
+    
     double BM25_t_q(std::string term, uint32_t docID, uint32_t freq);
     uint32_t getFreq(std::string term, uint32_t docID);
-    uint32_t nextGEQ(uint32_t pointer, uint32_t end,uint32_t k);
     void openList(uint32_t,uint32_t&,std::vector<uint32_t>&,std::vector<uint32_t>&,std::vector<uint32_t>&);
     void TAATQuery(std::vector<std::string> word_list, int type);
     std::vector<std::string> splitQuery(std::string);
@@ -32,8 +32,9 @@ private:
     void decodeBlocks(std::string,std::map<uint32_t, double>&, bool);
     void decodeBlock(std::string,uint32_t&,std::map<uint32_t, double>&, bool);
     void findTopKscores(std::map<uint32_t, double>&,int);
-    bool findDocID(uint32_t,uint32_t&,uint32_t&,uint32_t,uint32_t);
     uint32_t calcMetaSize(uint32_t,std::vector<uint32_t>&,std::vector<uint32_t>&,std::vector<uint32_t>&);
+    void updateSnippets(std::vector<std::string>);
+    std::string findSnippets(uint32_t, std::vector<std::string>);
     
 public:
     DocTable _DocTable;

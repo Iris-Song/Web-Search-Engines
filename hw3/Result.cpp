@@ -39,86 +39,14 @@ void ResultList::Print()
     }
 }
 
-void ResultList::FindSnippets(std::vector<std::string> word_list)
-{
-    std::vector<uint32_t> docID_list;
-    for(int i=0;i<_resultList.size();i++)
-    {
-        docID_list.push_back(_resultList[i].docID);
-    }
-    sort(docID_list.begin(), docID_list.end()); 
-
-    //read .gz
-    gzFile gzfile = gzopen(DATA_SOURCE_PATH, "r");
-    int size = INDEX_CHUNK;
-    char *buffer = (char *)malloc(size + 1);
-
-    uint32_t docID = 0;
-    std::string docContent;
-    int pointer = 0;
-
-    if (!gzfile)
-    {
-        std::cout << "cannot find .trec file" << std::endl;
-        return;
-    }
-
-    while (pointer<docID_list.size()&&!gzeof(gzfile) )
-    {
-        int readlen = gzread(gzfile, buffer, size);
-        buffer[readlen] = '\0';
-
-        uint32_t docIDNow = docID_list[pointer];
-        bool is_find = false;
-
-        docContent += buffer;
-        size_t pos;
-
-        while ((pos = docContent.find("</DOC>")) != std::string::npos)
-        {
-            const int CONST_DOC_LEN = 6; // len of '</DOC>'
-            if(docID==docIDNow)
-            {
-                //get snippets
-                std::string snippets = extractSnippets(docContent.substr(0, pos), "<TEXT>\n", "</TEXT>", word_list);
-                //update snippets in resultList
-                updateDocIDSnippets(docIDNow,snippets);
-                pointer += 1;
-                if(pointer<docID_list.size()){
-                    docIDNow = docID_list[pointer];
-                }else{
-                    break;
-                }
-            }
-            docContent = docContent.substr(pos + CONST_DOC_LEN);
-            docID += 1;
-        }
-    }
-
-    free(buffer);
-    gzclose(gzfile);
-    gzfile = NULL;
-    
-}
-
-void ResultList::updateDocIDSnippets(uint32_t docID, std::string snippets)
-{
-    for(int i=0;i<_resultList.size();i++)
-    {
-        if(_resultList[i].docID==docID){
-            _resultList[i].snippets = snippets;
-            break;
-        }
-    }
-}
 
 std::string ResultList::extractSnippets(std::string org, std::string bstr, std::string estr, std::vector<std::string> word_list)
 {
     size_t begin_tag_len = bstr.length();
 
-    size_t start_pos = org.find(bstr);
+    size_t start_pos = org.find(bstr) + begin_tag_len;
     size_t end_pos = org.find(estr);
-    std::string text = org.substr(start_pos + begin_tag_len, end_pos - start_pos - begin_tag_len);
+    std::string text = org.substr(start_pos, end_pos - start_pos);
     start_pos = text.find("\n");
     text = text.substr(start_pos);
 

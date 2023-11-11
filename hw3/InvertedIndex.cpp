@@ -106,6 +106,8 @@ void InvertedIndex::Insert(std::string word, uint32_t docID, uint32_t freq)
         }
     }
 
+    return;
+
     if (isWrite) // INDEX CHUNK is full, need write out.
     {
         Write();

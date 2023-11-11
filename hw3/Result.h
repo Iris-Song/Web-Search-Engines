@@ -15,8 +15,6 @@ public:
 class ResultList
 {
 private:
-    void updateDocIDSnippets(uint32_t, std::string);
-    std::string extractSnippets(std::string, std::string, std::string, std::vector<std::string>);
     bool in_list(std::string, std::vector<std::string>&);
 
 public:
@@ -24,5 +22,5 @@ public:
     void Insert(uint32_t, std::string, double, std::string);
     void Clear();
     void Print();
-    void FindSnippets(std::vector<std::string>);
+    std::string extractSnippets(std::string, std::string, std::string, std::vector<std::string>);
 };

@@ -3,7 +3,8 @@ void Document::print()
 {
     std::cout << "docID:" << docID << " docNO:" << docNO
               << " url:" << url << " dataLen:" << dataLen
-              << " wordnums:" << wordnums << std::endl;
+              << " wordnums:" << wordnums
+              << " pointer:" << gzp << std::endl;
 }
 
 DocTable::DocTable(/* args */)
@@ -40,7 +41,7 @@ void DocTable::Write()
          iter != _DocTable.end(); ++iter)
     {
         outfile << iter->docID << " " << iter->docNO << " " << iter->dataLen << " "
-                << iter->wordnums << " " << iter->url << " " << std::endl;
+                << iter->wordnums << " " << iter->url << " " << iter->gzp << " " << std::endl;
     }
     outfile.close();
 }
@@ -91,9 +92,11 @@ void DocTable::LoadDocTable()
     {
         Document newdoc;
         infile>>newdoc.docID>>newdoc.docNO
-        >>newdoc.dataLen>>newdoc.wordnums>>newdoc.url;
+        >>newdoc.dataLen>>newdoc.wordnums>>newdoc.url>>newdoc.gzp;
         _DocTable.push_back(newdoc);
+        
     }
     _totalDoc = _DocTable.size();
+    // std::cout<<_totalDoc<<std::endl;
     calcAvgDataLen();
 }
