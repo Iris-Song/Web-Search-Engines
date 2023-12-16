@@ -33,8 +33,8 @@ private:
     void decodeBlock(std::string,uint32_t&,std::map<uint32_t, double>&, bool);
     void findTopKscores(std::map<uint32_t, double>&,int);
     uint32_t calcMetaSize(uint32_t,std::vector<uint32_t>&,std::vector<uint32_t>&,std::vector<uint32_t>&);
-    void updateSnippets(std::vector<std::string>);
-    std::string findSnippets(uint32_t, std::vector<std::string>);
+    void updateSnippets(std::vector<std::string>, std::vector<uint32_t>);
+    std::string findSnippets(uint32_t, std::vector<std::string>,  std::vector<uint32_t>);
     
 public:
     DocTable _DocTable;
@@ -50,6 +50,7 @@ public:
     void WriteLexicon();
     void QueryLoop();
     void TestQuery();
+    void TestSnippets(std::string);
     
 };
 

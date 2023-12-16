@@ -313,7 +313,6 @@ double DataLoader::BM25_t_q(std::string term, uint32_t docID, uint32_t freq)
     return score;
 }
 
-
 void DataLoader::openList(uint32_t offset, uint32_t &metadata_size,
                           std::vector<uint32_t> &lastdocID_list, std::vector<uint32_t> &docIDsize_list,
                           std::vector<uint32_t> &freqSize_list)
@@ -457,6 +456,7 @@ std::vector<std::string> DataLoader::splitQuery(std::string query)
     }
     return word_list;
 }
+
 void DataLoader::TestQuery()
 {
     std::string query = "cat dog mouse";
@@ -473,7 +473,7 @@ void DataLoader::TestQuery()
     std::cout << "search using " << std::setiosflags(std::ios::fixed)
               << std::setprecision(2) << double(query_time) / 1000000 << "s" << std::endl;
     clock_t snippet_begin = clock();
-    updateSnippets(word_list);
+    updateSnippets(word_list,std::vector<uint32_t>());
     clock_t snippet_end = clock();
     clock_t snippet_time = snippet_end - snippet_begin;
     std::cout << "find snippets using " << double(snippet_time) / 1000000 << "s" << std::endl;
@@ -488,6 +488,8 @@ void DataLoader::QueryLoop()
     std::cout << "you can select search type, conjunctive(0) or disjunctive(1) queries." << std::endl;
     std::cout << std::setiosflags(std::ios::fixed) << std::setprecision(2);
 
+    // std::cout<<_DocTable._avg_data_len<<" "<<_DocTable._totalDoc<<std::endl;
+    
     while (true)
     {
         std::cout << "query>>";
@@ -518,6 +520,11 @@ void DataLoader::QueryLoop()
 
         clock_t query_start = clock();
         std::vector<std::string> word_list = splitQuery(query);
+
+        for(int i=0;i<word_list.size();i++){
+            std::cout<<_Lexicon._lexiconList[word_list[i]].docNum<<std::endl;
+        }
+        
         if (!word_list.size())
         {
             std::cout << "unlegal query" << std::endl;
@@ -528,7 +535,7 @@ void DataLoader::QueryLoop()
         clock_t query_time = query_end - query_start;
         std::cout << "search using " << double(query_time) / 1000000 << "s" << std::endl;
         clock_t snippet_begin = clock();
-        updateSnippets(word_list);
+        updateSnippets(word_list, std::vector<uint32_t>());
         clock_t snippet_end = clock();
         clock_t snippet_time = snippet_end - snippet_begin;
         std::cout << "find snippets using " << double(snippet_time) / 1000000 << "s" << std::endl;
@@ -750,6 +757,7 @@ void DataLoader::findTopKscores(std::map<uint32_t, double> &score_hash, int k)
         maxQueue.pop();
     }
 }
+
 uint32_t DataLoader::calcMetaSize(uint32_t metadata_size, std::vector<uint32_t> &lastdocID_list,
                                   std::vector<uint32_t> &docIDsize_list, std::vector<uint32_t> &freqSize_list)
 {
@@ -761,6 +769,7 @@ uint32_t DataLoader::calcMetaSize(uint32_t metadata_size, std::vector<uint32_t> 
     }
     return size;
 }
+
 void DataLoader::updateScoreHash(std::string term, std::map<uint32_t, double> &score_hash, bool is_init)
 {
     uint32_t beginp = _Lexicon._lexiconList[term].beginp;
@@ -854,18 +863,19 @@ void DataLoader::updateScoreHash(std::string term, std::map<uint32_t, double> &s
     }
 }
 
-void DataLoader::updateSnippets(std::vector<std::string> word_list)
+void DataLoader::updateSnippets(std::vector<std::string> word_list, std::vector<uint32_t> word_docNum_list)
 {
     for (int i = 0; i < _resultList._resultList.size(); i++)
     {
-        std::string s = findSnippets(_resultList._resultList[i].docID, word_list);
+        std::string s = findSnippets(_resultList._resultList[i].docID, word_list, word_docNum_list);
         _resultList._resultList[i].snippets = s;
     }
 }
 
-std::string DataLoader::findSnippets(uint32_t docID, std::vector<std::string> word_list)
+std::string DataLoader::findSnippets(uint32_t docID, std::vector<std::string> word_list,
+ std::vector<uint32_t> word_docNum_list)
 {
-    // read .gz
+    // read .trec
     std::ifstream infile;
     infile.open(SNIPPETS_SOURCE_PATH);
     infile.seekg(_DocTable._DocTable[docID].gzp);
@@ -878,8 +888,18 @@ std::string DataLoader::findSnippets(uint32_t docID, std::vector<std::string> wo
     std::string docContent;
     docContent = buffer;
 
-    snippets = _resultList.extractSnippets(docContent, "<TEXT>\n", "</TEXT>", word_list);
+    snippets = _resultList.extractSnippets(docContent, "<TEXT>\n", "</TEXT>", word_list, word_docNum_list);
 
     free(buffer);
     return snippets;
+}
+
+//avoid loading tables, save time
+void DataLoader::TestSnippets(std::string fakefile_path)
+{
+    std::vector<std::string> word_list;
+    std::vector<uint32_t> word_docNum_list;
+    _resultList.ReadFake(fakefile_path, word_list, word_docNum_list);
+    updateSnippets(word_list, word_docNum_list);
+    _resultList.Print();
 }

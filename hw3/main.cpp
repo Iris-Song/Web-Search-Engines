@@ -46,13 +46,23 @@ int main()
         dl._Lexicon.LoadLexiconList();
         clock_t reload_end = clock();
         clock_t reload_time = reload_end - reload_begin;
-        std::cout<<"Start up DocTable and Lexicon Structure Need "<<double(reload_time)/1000000<<"s"<<std::endl; 
+        std::cout<<"Start up DocTable Structure Need "<<double(reload_time)/1000000<<"s"<<std::endl; 
     }
 
     if(IS_QUERY)
     {
         dl.QueryLoop();
         // dl.TestQuery();
+    }
+
+    if(IS_DEBUG && IS_SNIPPETS)
+    {
+        clock_t reload_begin = clock();
+        dl._DocTable.LoadDocTable();
+        clock_t reload_end = clock();
+        clock_t reload_time = reload_end - reload_begin;
+        std::cout<<"Start up DocTable and Lexicon Structure Need "<<double(reload_time)/1000000<<"s"<<std::endl;         
+        dl.TestSnippets(FAKE_RESULT_PATH);
     }
     
 }
