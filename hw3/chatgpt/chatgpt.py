@@ -12,10 +12,7 @@ while True:
     doc_offset.append(int(offset))
 doc_table_file.close()
 
-# client = OpenAI()
-client = OpenAI(
-    api_key="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",
-)
+client = OpenAI()
 
 # read file
 result_file = open("../result/fake_result20.txt")
@@ -49,7 +46,7 @@ for i, docID in enumerate(docID_list[::-1]):
     completion = client.chat.completions.create(
         model="gpt-3.5-turbo-1106",
         messages=[
-            {"role": "system", "content": "You should select snippet from a given text based on words in query\
+            {"role": "system", "content": "You are a query dependent snippet generator. You should select snippet from a given text based on words in query\
              . The snippet should no more than 30 terms or 200 characters"},
             {"role": "user", "content": user_content[:16300]}
         ]
